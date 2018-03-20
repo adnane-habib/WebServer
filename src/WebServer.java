@@ -1,9 +1,10 @@
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Scanner;
 
 public class WebServer {
 	
-	private final static int LISTENING_PORT = 8080;
+	private final static int LISTENING_PORT = 50505;
 
 	 public static void main(String[] args) {
 	        ServerSocket serverSocket;
@@ -32,7 +33,35 @@ public class WebServer {
 
 	private static void handleConnection(Socket connection) {
 		// TODO Auto-generated method stub
-		
+		try {
+			Scanner in = new Scanner(connection.getInputStream());
+			while (true) {
+				if ( ! in.hasNextLine() )
+					break;
+				String line = in.nextLine();
+				if (line.trim().length() == 0)
+					break;
+				//System.out.println("   " + line);
+				String[] myLine = line.trim().split(" ");
+				System.out.println("\n\n");
+				for (String element : myLine){
+					//System.out.println("Start of array \n\n");
+
+					System.out.println(element);
+				}
+			}
+		}
+		catch (Exception e) {
+			System.out.println("Error while communicating with client: " + e);
+		}
+		finally {  // make SURE connection is closed before returning!
+			try {
+				connection.close();
+			}
+			catch (Exception e) {
+			}
+			System.out.println("Connection closed.");
+		}
 	}
 
 }
