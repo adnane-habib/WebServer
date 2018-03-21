@@ -1,4 +1,6 @@
 import java.io.File;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
@@ -47,33 +49,65 @@ public class WebServer {
 		// TODO Auto-generated method stub
 		try {
 			Scanner in = new Scanner(connection.getInputStream());
-			while (true) {
-				if ( ! in.hasNextLine() )
+
+            while (true) {
+    			PrintWriter outgoing;   // Stream for sending data.
+                outgoing = new PrintWriter( connection.getOutputStream() );
+                
+                if ( ! in.hasNextLine() )
 					break;
 				String line = in.nextLine();
 				if (line.trim().length() == 0)
 					break;
-				//System.out.println("   " + line);
+
 				String[] myLine = line.trim().split(" ");
-				System.out.println("\n\nAnd the winner is");
-				System.out.println(!myLine[0].equals("GET") || (!myLine[myLine.length-1].equals("HTTP/1.1") && !myLine[myLine.length-1].equals("HTTP/1.0")));
-				if (!myLine[0].equals("GET") || (!myLine[myLine.length-1].equals("HTTP/1.1") && !myLine[myLine.length-1].equals("HTTP/1.0")))
-					throw new HTTPException(-1);
-				for (String element : myLine){
-					//System.out.println("Start of array \n\n");
-					System.out.println(element);
-				}
+
+				if (!myLine[0].equals("GET")){
+					sendErrorResponse(501, outgoing);
+					outgoing.flush();  // Make sure the data is actually sent!
+		            connection.close();
+		            return;
+		            }
 				
-				System.out.println(System.getProperty("user.dir")+"This is my path");
-				System.out.println(System.getProperty("user.dir")+"\\www"+myLine[1].replace("/", "\\"));
+				else if (!myLine[myLine.length-1].equals("HTTP/1.1") && 
+						!myLine[myLine.length-1].equals("HTTP/1.0")){
+					sendErrorResponse(400, outgoing);
+					outgoing.flush();  // Make sure the data is actually sent!
+					connection.close();	
+					return;
+					}			
+				
 				File myFile = new File(rootDirectory +myLine[1].replace("/", "\\"));
+				File myIndex = new File(rootDirectory +"\\index.html");
 				
+ 				if (!myFile.exists() || !myIndex.exists() || !myIndex.isDirectory()){
+					sendErrorResponse(404, outgoing);
+					outgoing.flush();  // Make sure the data is actually sent!
+					connection.close();	
+					return; 					
+ 				}
+ 				
+ 				else if (myFile.exists() || myIndex.exists() || myIndex.isDirectory()){
+ 				
 				System.out.println("File "+myFile+" exists " + myFile.exists());
 				System.out.println("File "+myFile+" is directory " + myFile.isDirectory());
-				
-				
+				System.out.println("File "+myFile+" can read " + myFile.canRead());
+			
+	            outgoing.println( "HTTP/1.1 200 OK\r\n" );
+	            outgoing.println( "Connection: close\r\n" );
+	            outgoing.println( "Content-Length: "+myFile.length()+"\r\n" );
+	            outgoing.println( "Content-Type: "+getMimeType(myFile.toString())+"\r\n" );
+	            outgoing.println( "\r\n" );
+				outgoing.flush();  // Make sure the data is actually sent!
+				connection.close();	
 				return;
-
+ 				}
+ 				else {
+					sendErrorResponse(500, outgoing);
+					outgoing.flush();  // Make sure the data is actually sent!
+					connection.close();	
+					return;
+ 				}
 			}
 		}
 		catch (Exception e) {
@@ -88,5 +122,86 @@ public class WebServer {
 			System.out.println("Connection closed.");
 		}
 	}
-
+	private static String getMimeType(String fileName) {
+        int pos = fileName.lastIndexOf('.');
+        if (pos < 0)  // no file extension in name
+            return "x-application/x-unknown";
+        String ext = fileName.substring(pos+1).toLowerCase();
+        if (ext.equals("txt")) return "text/plain";
+        else if (ext.equals("html")) return "text/html";
+        else if (ext.equals("htm")) return "text/html";
+        else if (ext.equals("css")) return "text/css";
+        else if (ext.equals("js")) return "text/javascript";
+        else if (ext.equals("java")) return "text/x-java";
+        else if (ext.equals("jpeg")) return "image/jpeg";
+        else if (ext.equals("jpg")) return "image/jpeg";
+        else if (ext.equals("png")) return "image/png";
+        else if (ext.equals("gif")) return "image/gif"; 
+        else if (ext.equals("ico")) return "image/x-icon";
+        else if (ext.equals("class")) return "application/java-vm";
+        else if (ext.equals("jar")) return "application/java-archive";
+        else if (ext.equals("zip")) return "application/zip";
+        else if (ext.equals("xml")) return "application/xml";
+        else if (ext.equals("xhtml")) return"application/xhtml+xml";
+        else return "x-application/x-unknown";
+           // Note:  x-application/x-unknown  is something made up;
+           // it will probably make the browser offer to save the file.
+     }
+	 static void sendErrorResponse(int errorCode, PrintWriter socketOut){
+		 switch (errorCode){
+		 case 400:
+			 System.out.println("ERROR 400");
+			 socketOut.println("HTTP/1.1 400 Bad Request\r\n"+
+					 "Connection: close\r\n"+
+					 "Content-Type: text/html\r\n"+"\r\n"+
+					 "<html><head><title>Error</title></head><body>\r\n"+
+					 "<h2>Error: 400 Bad Request</h2>\r\n"+
+					 "<p>The resource that you requested does not exist on this server.</p>\r\n"+
+					 "</body></html>\r\n");
+			 break;
+		 case 403:
+			 System.out.println("ERROR 403");
+			 socketOut.println("HTTP/1.1 403 Forbidden\r\n"+
+					 "Connection: close\r\n"+
+					 "Content-Type: text/html\r\n"+"\r\n"+
+					 "<html><head><title>Error</title></head><body>\r\n"+
+					 "<h2>Error: 403 Forbidden</h2>\r\n"+
+					 "<p>The resource that you requested does not exist on this server.</p>\r\n"+
+					 "</body></html>\r\n");
+			 break;
+		 case 404:
+			 System.out.println("ERROR 404");
+			 socketOut.println("HTTP/1.1 404 Not Found\r\n"+
+					 "Connection: close\r\n"+
+					 "Content-Type: text/html\r\n"+"\r\n"+
+					 "<html><head><title>Error</title></head><body>\r\n"+
+					 "<h2>Error: 404 Not Found</h2>\r\n"+
+					 "<p>The resource that you requested does not exist on this server.</p>\r\n"+
+					 "</body></html>\r\n");
+			 break;			 			 
+		 case 500:
+			 System.out.println("ERROR 500");
+			 socketOut.println("HTTP/1.1 500 Internal Server Error\r\n"+
+					 "Connection: close\r\n"+
+					 "Content-Type: text/html\r\n"+"\r\n"+
+					 "<html><head><title>Error</title></head><body>\r\n"+
+					 "<h2>Error: 500 Internal Server Error</h2>\r\n"+
+					 "<p>The resource that you requested does not exist on this server.</p>\r\n"+
+					 "</body></html>\r\n");
+			 break;
+		 case 501:
+			 System.out.println("ERROR 501");
+			 socketOut.println("HTTP/1.1 501 Not Implemented\r\n"+
+					 "Connection: close\r\n"+
+					 "Content-Type: text/html\r\n"+"\r\n"+
+					 "<html><head><title>Error</title></head><body>\r\n"+
+					 "<h2>Error: 501 Not Impelemented</h2>\r\n"+
+					 "<p>The resource that you requested does not exist on this server.</p>\r\n"+
+					 "</body></html>\r\n");
+			 break;
+			 default:
+				 break;
+			 }
+		 
+	 }
 }
