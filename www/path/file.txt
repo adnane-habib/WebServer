@@ -1,7 +1,6 @@
-klasjgh
-alkfgh
-asfklhj
-alskjfgh
-lkajfhg
-lkahfg
-lkajgf
+Hello fellows
+I am happy to share with you my work 
+I have built up a webserver
+It displays the content of file.txt
+If the file is missing, it looks for an index.html file
+Feel free to make use of it

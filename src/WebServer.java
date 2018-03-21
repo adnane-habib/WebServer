@@ -12,10 +12,15 @@ import java.net.Socket;
 import java.util.Scanner;
 
 import javax.xml.ws.http.HTTPException;
-
+/**
+ * This program creates a multi-connections web server 
+ * @author MedAdnane
+ *
+ */
 public class WebServer {
-
-	private final static int LISTENING_PORT = 50505;
+	// port is defined as a final variable
+	private final static int LISTENING_PORT = 50505; 
+	// Path to /www folder is defined dynamically using relative path
 	private final static String rootDirectory = System.getProperty("user.dir") + "\\www";
 
 	public static void main(String[] args) {
@@ -32,6 +37,7 @@ public class WebServer {
 				Socket connection = serverSocket.accept();
 				System.out.println("\nConnection from " + connection.getRemoteSocketAddress());
 				//handleConnection(connection);
+				//connections are handleded by thread to allow multiple connections
 				ConnectionThread thread = new ConnectionThread(connection);
 				thread.start();
 			}
@@ -61,9 +67,9 @@ public class WebServer {
 				String line = in.nextLine();
 				if (line.trim().length() == 0)
 					break;
-
+				// request is converted to strings to verify if format is valid
 				String[] myLine = line.trim().split(" ");
-
+				// if request is not valid, error is handled and response is submitted to remote client
 				if (!myLine[0].equals("GET")) {
 					sendErrorResponse(501, outgoing);
 					outgoing.flush(); // Make sure the data is actually sent!
@@ -88,7 +94,8 @@ public class WebServer {
 					connection.close();
 					return;
 				}
-
+				// valid requests are processed, if requested file is present, it is transmitted
+				//otherwise, user is redirected to homepage
 				else if (myFile.exists() || myIndex.exists() || myFile.isDirectory()) {
 
 					try {
@@ -179,6 +186,11 @@ public class WebServer {
 		}
 	}// End of handleConnection()
 
+	/**
+	 * This methid takes a file a return a string with its type
+	 * @param fileName
+	 * @return corresponds to file type
+	 */
 	private static String getMimeType(String fileName) {
 		int pos = fileName.lastIndexOf('.');
 		if (pos < 0) // no file extension in name
@@ -221,6 +233,12 @@ public class WebServer {
 		// Note: x-application/x-unknown is something made up;
 		// it will probably make the browser offer to save the file.
 	}
+	
+	/**
+	 * This method takes the error code and return an html code 
+	 * @param errorCode	standard HTTP error codes
+	 * @param socketOut	standard HTTP response
+	 */
 
 	static void sendErrorResponse(int errorCode, OutputStream socketOut) {
 		try {
@@ -274,6 +292,12 @@ public class WebServer {
 
 	}// end of sendErrorResponse() method
 
+	/**
+	 * THis method takes a file and an active connection and transmits the file through the connection
+	 * @param file
+	 * @param socketOut
+	 * @throws IOException
+	 */
 	private static void sendFile(File file, OutputStream socketOut) throws IOException {
 		InputStream in = new BufferedInputStream(new FileInputStream(file));
 		OutputStream out = new BufferedOutputStream(socketOut);
@@ -286,6 +310,11 @@ public class WebServer {
 		out.flush();
 		in.close();
 	}
+	/**
+	 * This Class takes care of multiple connections
+	 * @author MedAdnane
+	 *
+	 */
     private static class ConnectionThread extends Thread {
         Socket connection;
         ConnectionThread(Socket connection) {
