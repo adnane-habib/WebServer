@@ -2,6 +2,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -30,7 +31,9 @@ public class WebServer {
 			while (true) {
 				Socket connection = serverSocket.accept();
 				System.out.println("\nConnection from " + connection.getRemoteSocketAddress());
-				handleConnection(connection);
+				//handleConnection(connection);
+				ConnectionThread thread = new ConnectionThread(connection);
+				thread.start();
 			}
 		} catch (HTTPException e) {
 			System.out.println("Invalid HTTP format");
@@ -42,9 +45,9 @@ public class WebServer {
 			System.out.println("Error: " + e);
 			System.out.println("Exiting.");
 		}
-	}
+	} // End of main() method
 
-	private static void handleConnection(Socket connection) throws HTTPException {
+	private static void handleConnection(Socket connection) {
 		// TODO Auto-generated method stub
 		try {
 			Scanner in = new Scanner(connection.getInputStream());
@@ -95,10 +98,32 @@ public class WebServer {
 							outgoing.write(("Content-Length: " + myFile.length() + "\r\n").getBytes());
 							outgoing.write(("Content-Type: " + getMimeType(myFile.toString()) + "\r\n").getBytes());
 							outgoing.write("\r\n".getBytes());
+							if (myFile.canRead()) {
 
-							System.out.println("My File exists");
-							sendFile(myFile, outgoing);
-							outgoing.flush(); // Make sure the data is actually
+								System.out.println("My File exists");
+								sendFile(myFile, outgoing);
+								outgoing.flush(); // Make sure the data is
+													// actually
+								connection.close();
+							} else if (myFile.isDirectory()) {
+								System.out.println("My Directory exists");
+								System.out.println("Files are " + myFile.list());
+								try {
+
+									String[] files = myFile.list();
+									String concat = "";
+									for (String subFile : files) {
+										concat += "\n" + subFile;
+										System.out.println(subFile);
+									}
+									outgoing.write(concat.getBytes());
+									outgoing.flush(); // Make sure the data is
+														// actually
+									connection.close();
+								} catch (FileNotFoundException e) {
+									sendErrorResponse(403, outgoing);
+								}
+							}
 						}
 
 						else if (myIndex.exists()) {
@@ -111,19 +136,15 @@ public class WebServer {
 							System.out.println("My index exists");
 							sendFile(myIndex, outgoing);
 							outgoing.flush(); // Make sure the data is actually
+							connection.close();
 						}
 
-						else if (myFile.isDirectory()) {
-							System.out.println("My Directory exists");
-							String[] files = myFile.list();
-							String concat = "";
-							for (String subFile : files) {
-								concat += "\n" + subFile;
-								System.out.println(subFile);
-							}
-							outgoing.write(concat.getBytes());
+						else {
+							sendErrorResponse(500, outgoing);
 							outgoing.flush(); // Make sure the data is actually
-
+												// sent!
+							connection.close();
+							return;
 						}
 
 					}
@@ -131,8 +152,7 @@ public class WebServer {
 					catch (IOException e) {
 						System.out.println(e);
 						outgoing.flush();
-					} 
-					finally {
+					} finally {
 						outgoing.flush(); // Make sure the data is actually
 											// sent!
 						connection.close();
@@ -157,7 +177,7 @@ public class WebServer {
 			}
 			System.out.println("Connection closed.");
 		}
-	}
+	}// End of handleConnection()
 
 	private static String getMimeType(String fileName) {
 		int pos = fileName.lastIndexOf('.');
@@ -264,6 +284,15 @@ public class WebServer {
 			out.write(x); // write the byte to the socket
 		}
 		out.flush();
+		in.close();
 	}
-
+    private static class ConnectionThread extends Thread {
+        Socket connection;
+        ConnectionThread(Socket connection) {
+           this.connection = connection;
+        }
+        public void run() {
+           handleConnection(connection);
+        }
+     }
 }
